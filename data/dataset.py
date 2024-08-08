@@ -16,7 +16,7 @@ class MeshSimplificationDataset(Dataset):
         return [
             f
             for f in os.listdir(self.data_dir)
-            if f.endswith(".obj") or f.endswith(".ply")
+            if f.endswith(".ply") or f.endswith(".obj") or f.endswith(".stl")
         ]
 
     def __len__(self):
