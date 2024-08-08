@@ -53,7 +53,7 @@ save_mesh(simplified_mesh, "path/to/simplified_mesh.obj")
 To train the model on your own dataset:
 
 ```bash
-python train.py --data_path /path/to/your/dataset --epochs 100 --batch_size 32
+python ./scripts/train.py --data_path /path/to/your/dataset --epochs 100 --batch_size 32
 ```
 
 ## Evaluation
@@ -61,7 +61,7 @@ python train.py --data_path /path/to/your/dataset --epochs 100 --batch_size 32
 To evaluate the model on a test set:
 
 ```bash
-python evaluate.py --model_path /path/to/saved/model --test_data /path/to/test/set
+python ./scripts/evaluate.py --model_path /path/to/saved/model --test_data /path/to/test/set
 ```
 
 ## Results
