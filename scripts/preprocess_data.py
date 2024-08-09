@@ -1,13 +1,10 @@
 import os
-import shutil
 import sys
 
 # Add the root directory of your project to the Python path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from data.dataset import MeshSimplificationDataset, load_mesh, preprocess_mesh
-from utils.mesh_operations import simplify_mesh
-from scipy.sparse.csgraph import connected_components
 import trimesh
 import networkx as nx
 from tqdm import tqdm
