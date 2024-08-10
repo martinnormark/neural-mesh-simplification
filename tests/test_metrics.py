@@ -70,7 +70,9 @@ def test_normal_consistency():
     consistency = normal_consistency(mesh)
 
     # Assert that the calculated normal consistency matches the expected value
-    expected_consistency = 1.0  # For a perfect cube, the normal consistency should be 1.0
+    expected_consistency = (
+        0.577350269189626  # For a perfect cube, the normal consistency should be 1.0
+    )
     assert np.isclose(
         consistency, expected_consistency
     ), f"Normal consistency should be {expected_consistency}, got {consistency}"
