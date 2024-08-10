@@ -1,6 +1,7 @@
 import numpy as np
 import trimesh
 from metrics.chamfer_distance import chamfer_distance
+from metrics.normal_consistency import normal_consistency
 
 
 def create_cube_mesh(scale=1.0):
@@ -59,3 +60,17 @@ def test_chamfer_distance_different_meshes():
     assert (
         dist > 0
     ), f"Chamfer distance for different meshes should be greater than 0, got {dist}"
+
+
+def test_normal_consistency():
+    # Create a cube mesh with known normal consistency
+    mesh = create_cube_mesh()
+
+    # Calculate the normal consistency
+    consistency = normal_consistency(mesh)
+
+    # Assert that the calculated normal consistency matches the expected value
+    expected_consistency = 1.0  # For a perfect cube, the normal consistency should be 1.0
+    assert np.isclose(
+        consistency, expected_consistency
+    ), f"Normal consistency should be {expected_consistency}, got {consistency}"
