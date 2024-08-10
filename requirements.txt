@@ -11,6 +11,7 @@ frozenlist==1.4.1
 fsspec==2024.5.0
 huggingface-hub==0.24.5
 idna==3.7
+iniconfig==2.0.0
 Jinja2==3.1.4
 joblib==1.4.2
 MarkupSafe==2.1.5
@@ -21,10 +22,12 @@ networkx==3.3
 numpy==2.0.1
 packaging==24.1
 pandas==2.2.2
+pluggy==1.5.0
 psutil==6.0.0
 pyarrow==17.0.0
 pyarrow-hotfix==0.6
 pyparsing==3.1.2
+pytest==8.3.2
 python-dateutil==2.9.0.post0
 pytz==2024.1
 PyYAML==6.0.2
