@@ -2,6 +2,7 @@ import numpy as np
 import trimesh
 from metrics.chamfer_distance import chamfer_distance
 from metrics.normal_consistency import normal_consistency
+from metrics.edge_preservation import edge_preservation
 
 
 def create_cube_mesh(scale=1.0):
@@ -76,3 +77,13 @@ def test_normal_consistency():
     assert np.isclose(
         consistency, expected_consistency
     ), f"Normal consistency should be {expected_consistency}, got {consistency}"
+
+
+def test_edge_preservation():
+    original_mesh = create_cube_mesh()
+    simplified_mesh = create_cube_mesh(scale=0.5)  # Simplified version of the cube
+
+    preservation_metric = edge_preservation(original_mesh, simplified_mesh)
+
+    assert preservation_metric < 1.0, f"Edge preservation metric should be less than 1.0, got {preservation_metric}"
+    assert preservation_metric > 0.0, f"Edge preservation metric should be greater than 0.0, got {preservation_metric}"
