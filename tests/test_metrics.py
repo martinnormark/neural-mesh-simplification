@@ -64,26 +64,28 @@ def test_chamfer_distance_different_meshes():
 
 
 def test_normal_consistency():
-    # Create a cube mesh with known normal consistency
     mesh = create_cube_mesh()
-
-    # Calculate the normal consistency
     consistency = normal_consistency(mesh)
 
-    # Assert that the calculated normal consistency matches the expected value
-    expected_consistency = (
-        0.577350269189626  # For a perfect cube, the normal consistency should be 1.0
-    )
+    expected_consistency = 0.577350269189626
+
     assert np.isclose(
         consistency, expected_consistency
     ), f"Normal consistency should be {expected_consistency}, got {consistency}"
 
 
 def test_edge_preservation():
-    original_mesh = create_cube_mesh()
-    simplified_mesh = create_cube_mesh(scale=0.5)  # Simplified version of the cube
+    original_mesh = trimesh.load("./tests/mesh_data/rounded_cube.obj")
+    simplified_mesh = trimesh.load("./tests/mesh_data/sharp_cube.obj")
+
+    # original_mesh = trimesh.creation.icosphere(subdivisions=3, radius=2)
+    # simplified_mesh = trimesh.creation.icosphere(subdivisions=2, radius=2)
 
     preservation_metric = edge_preservation(original_mesh, simplified_mesh)
 
-    assert preservation_metric < 1.0, f"Edge preservation metric should be less than 1.0, got {preservation_metric}"
-    assert preservation_metric > 0.0, f"Edge preservation metric should be greater than 0.0, got {preservation_metric}"
+    assert (
+        preservation_metric < 1.0
+    ), f"Edge preservation metric should be less than 1.0, got {preservation_metric}"
+    assert (
+        preservation_metric > 0.0
+    ), f"Edge preservation metric should be greater than 0.0, got {preservation_metric}"
