@@ -3,6 +3,7 @@ import trimesh
 from metrics.chamfer_distance import chamfer_distance
 from metrics.normal_consistency import normal_consistency
 from metrics.edge_preservation import edge_preservation
+from metrics.hausdorff_distance import hausdorff_distance
 
 
 def create_cube_mesh(scale=1.0):
@@ -89,3 +90,25 @@ def test_edge_preservation():
     assert (
         preservation_metric > 0.0
     ), f"Edge preservation metric should be greater than 0.0, got {preservation_metric}"
+
+
+def test_hausdorff_distance_identical_meshes():
+    mesh1 = create_cube_mesh()
+    mesh2 = create_cube_mesh()
+
+    dist = hausdorff_distance(mesh1, mesh2)
+
+    assert np.isclose(
+        dist, 0.0
+    ), f"Hausdorff distance for identical meshes should be 0, got {dist}"
+
+
+def test_hausdorff_distance_different_meshes():
+    mesh1 = create_cube_mesh()
+    mesh2 = trimesh.creation.icosphere(subdivisions=2, radius=2)
+
+    dist = hausdorff_distance(mesh1, mesh2)
+
+    assert (
+        dist > 1.99
+    ), f"Hausdorff distance for identical meshes should be 2, got {dist}"
