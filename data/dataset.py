@@ -81,6 +81,9 @@ def mesh_to_tensor(mesh: trimesh.Trimesh) -> torch.Tensor:
     faces_tensor = torch.tensor(mesh.faces, dtype=torch.long)
 
     # Combine vertices and faces into a single tensor
-    mesh_tensor = torch.cat((vertices_tensor.flatten(), faces_tensor.flatten()))
+    num_vertices = torch.tensor([len(mesh.vertices)], dtype=torch.float32)
+    mesh_tensor = torch.cat(
+        (num_vertices, vertices_tensor.flatten(), faces_tensor.flatten())
+    )
 
     return mesh_tensor
