@@ -1,5 +1,5 @@
-import torch_scatter
 import torch.nn as nn
+from torch_scatter import scatter_max
 
 
 class DevConv(nn.Module):
@@ -21,9 +21,7 @@ class DevConv(nn.Module):
         rel_pos_transformed = self.W_theta(rel_pos)  # [num_edges, out_channels]
 
         # Aggregate using max operation
-        aggr_out = torch_scatter.scatter_max(
-            rel_pos_transformed, row, dim=0, dim_size=x.size(0)
-        )[0]
+        aggr_out = scatter_max(rel_pos_transformed, row, dim=0, dim_size=x.size(0))[0]
 
         # Apply W_phi
         out = self.W_phi(aggr_out)  # [num_nodes, out_channels]
