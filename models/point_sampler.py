@@ -1,49 +1,52 @@
 import torch
 import torch.nn as nn
+from .layers.devconv import DevConv
 
 
 class PointSampler(nn.Module):
-    def __init__(self, num_samples):
-        super().__init__()
-        self.num_samples = num_samples
+    def __init__(self, in_channels=3, out_channels=64, num_layers=3):
+        super(PointSampler, self).__init__()
+        self.num_layers = num_layers
 
-    def forward(self, mesh_tensor):
-        # Extract vertices and faces from the mesh tensor
-        num_vertices = int(
-            mesh_tensor[0].item()
-        )  # Assuming the first element stores the number of vertices
-        vertices = mesh_tensor[1 : num_vertices * 3 + 1].view(-1, 3)
-        faces = mesh_tensor[num_vertices * 3 + 1 :].view(-1, 3).long()
+        # Stack of DevConv layers
+        self.convs = nn.ModuleList()
+        self.convs.append(DevConv(in_channels, out_channels))
+        for _ in range(num_layers - 1):
+            self.convs.append(DevConv(out_channels, out_channels))
 
-        # Sample points
-        sampled_points = self.sample_points_from_mesh(vertices, faces)
-        return sampled_points
+        # Final output layer to produce a single score per vertex
+        self.output_layer = nn.Linear(out_channels, 1)
 
-    def sample_points_from_mesh(self, vertices, faces):
-        # Compute face areas
-        v0, v1, v2 = vertices[faces[:, 0]], vertices[faces[:, 1]], vertices[faces[:, 2]]
-        face_areas = 0.5 * torch.norm(
-            torch.linalg.cross(v1 - v0, v2 - v0, dim=1), dim=1
+        # Activation functions
+        self.activation = nn.ReLU()
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x, edge_index):
+        # x: Node features [num_nodes, in_channels]
+        # edge_index: Graph connectivity [2, num_edges]
+
+        # Apply DevConv layers
+        for conv in self.convs:
+            x = conv(x, edge_index)
+            x = self.activation(x)
+
+        # Generate inclusion scores
+        scores = self.output_layer(x).squeeze(-1)
+
+        # Convert scores to probabilities
+        probabilities = self.sigmoid(scores)
+
+        return probabilities
+
+    def sample(self, probabilities, num_samples):
+        # Multinomial sampling based on probabilities
+        sampled_indices = torch.multinomial(
+            probabilities, num_samples, replacement=False
         )
+        return sampled_indices
 
-        # Normalize face areas to get probabilities
-        face_probs = face_areas / face_areas.sum()
-
-        # Sample faces based on their areas
-        face_indices = torch.multinomial(face_probs, self.num_samples, replacement=True)
-
-        # Sample points within the selected faces
-        u = torch.sqrt(torch.rand(self.num_samples, device=vertices.device))
-        v = torch.rand(self.num_samples, device=vertices.device)
-        w = 1 - u - v
-
-        sampled_faces = faces[face_indices]
-        v0, v1, v2 = (
-            vertices[sampled_faces[:, 0]],
-            vertices[sampled_faces[:, 1]],
-            vertices[sampled_faces[:, 2]],
-        )
-
-        sampled_points = w[:, None] * v0 + u[:, None] * v1 + v[:, None] * v2
-
-        return sampled_points
+    def forward_and_sample(self, x, edge_index, num_samples):
+        # Combine forward pass and sampling in one step
+        probabilities = self.forward(x, edge_index)
+        sampled_indices = self.sample(probabilities, num_samples)
+        return sampled_indices, probabilities
