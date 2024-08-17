@@ -60,8 +60,10 @@ dependencies:
       - sympy==1.13.1
       - threadpoolctl==3.5.0
       - torch==2.4.0
+      - torch-cluster==1.6.3
       - torch-geometric==2.5.3
       - torch-scatter==2.1.2
+      - torch-sparse==0.6.18
       - tqdm==4.66.5
       - trimesh==4.4.4
       - typing-extensions==4.12.2

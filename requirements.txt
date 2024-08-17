@@ -40,8 +40,12 @@ six==1.16.0
 sympy==1.13.1
 threadpoolctl==3.5.0
 torch==2.4.0
+torch_cluster==1.6.3
+-f https://data.pyg.org/whl/torch-2.4.0+cpu.html
 torch_geometric==2.5.3
 torch_scatter==2.1.2
+-f https://data.pyg.org/whl/torch-2.4.0+cpu.html
+torch_sparse==0.6.18
 -f https://data.pyg.org/whl/torch-2.4.0+cpu.html
 tqdm==4.66.5
 trimesh==4.4.4
