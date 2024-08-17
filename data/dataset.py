@@ -1,9 +1,11 @@
 import os
 import torch
-from torch.utils.data import Dataset
 import trimesh
 import numpy as np
 from typing import Optional
+from torch.utils.data import Dataset
+from torch_geometric.data import Data
+from utils.mesh_operations import build_graph_from_mesh
 
 
 class MeshSimplificationDataset(Dataset):
@@ -30,8 +32,8 @@ class MeshSimplificationDataset(Dataset):
         if self.transform:
             mesh = self.transform(mesh)
 
-        mesh_tensor = mesh_to_tensor(mesh)
-        return mesh_tensor
+        data = mesh_to_tensor(mesh)
+        return data
 
 
 def load_mesh(file_path: str) -> trimesh.Trimesh:
@@ -71,8 +73,8 @@ def augment_mesh(mesh: trimesh.Trimesh) -> trimesh.Trimesh:
     return mesh
 
 
-def mesh_to_tensor(mesh: trimesh.Trimesh) -> torch.Tensor:
-    """Convert a mesh to tensor representation."""
+def mesh_to_tensor(mesh: trimesh.Trimesh) -> Data:
+    """Convert a mesh to tensor representation including graph structure."""
     if mesh is None:
         return None
 
@@ -80,10 +82,18 @@ def mesh_to_tensor(mesh: trimesh.Trimesh) -> torch.Tensor:
     vertices_tensor = torch.tensor(mesh.vertices, dtype=torch.float32)
     faces_tensor = torch.tensor(mesh.faces, dtype=torch.long)
 
-    # Combine vertices and faces into a single tensor
-    num_vertices = torch.tensor([len(mesh.vertices)], dtype=torch.float32)
-    mesh_tensor = torch.cat(
-        (num_vertices, vertices_tensor.flatten(), faces_tensor.flatten())
+    # Build graph structure
+    G = build_graph_from_mesh(mesh)
+
+    # Create edge index tensor
+    edge_index = torch.tensor(list(G.edges), dtype=torch.long).t().contiguous()
+
+    # Create Data object
+    data = Data(
+        x=vertices_tensor,
+        edge_index=edge_index,
+        face=faces_tensor.t(),
+        num_nodes=len(mesh.vertices),
     )
 
-    return mesh_tensor
+    return data
