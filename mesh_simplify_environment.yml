@@ -61,6 +61,7 @@ dependencies:
       - threadpoolctl==3.5.0
       - torch==2.4.0
       - torch-geometric==2.5.3
+      - torch-scatter==2.1.2
       - tqdm==4.66.5
       - trimesh==4.4.4
       - typing-extensions==4.12.2
