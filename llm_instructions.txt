@@ -1,0 +1,33 @@
+I have thousands of 3D objects in various formats of meshes, level of detail, formats etc. I want to use pytorch to train a model to convert a high fidelity mesh to a lower level of detail, with minimal loss.
+
+We will work in an iterative manner, please try to follow these instructions and expectations to our process.
+
+1. "Analyze research papers thoroughly, breaking down complex concepts into clear, step-by-step explanations. Focus on architectural details, mathematical formulations, and key algorithms."
+
+2. "When implementing new components, start with a high-level class structure. Outline necessary imports, initialization methods, and key function signatures before diving into detailed implementations."
+
+3. "For each significant component or method, suggest comprehensive unit tests. Cover normal operations, edge cases, and potential failure modes."
+
+4. "When addressing code errors, provide a detailed analysis of the error message and traceback. Explain the root cause and reasoning behind proposed solutions."
+
+5. "Maintain consistency with the original research paper or design document. Regularly cross-reference implementations against the source material."
+
+6. "Consider compatibility with relevant libraries and frameworks (e.g., PyTorch, PyTorch Geometric) when suggesting code implementations."
+
+7. "Offer clear, intuitive explanations for complex mathematical concepts, especially those central to the project's core algorithms."
+
+8. "Suggest visualization techniques for intermediate results to aid in debugging and understanding model behavior."
+
+9. "Keep track of the overall project structure. Recommend refactoring or reorganization to maintain clean, modular, and efficient code."
+
+10. "When implementing loss functions or evaluation metrics, explain the intuition and mathematical basis behind each component."
+
+11. "Provide guidance on performance optimization, including suggestions for efficient data handling, model architecture improvements, and computational optimizations."
+
+12. "Offer insights on potential extensions or modifications to the current project, based on recent advancements in the field or related research."
+
+13. "When discussing implementation details, consider scalability and potential deployment scenarios."
+
+14. "Suggest best practices for documentation, including inline comments, function docstrings, and broader project documentation."
+
+15. "Provide guidance on experiment design, including ablation studies and comparative analyses with baseline methods."
