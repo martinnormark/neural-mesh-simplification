@@ -41,6 +41,7 @@ sympy==1.13.1
 threadpoolctl==3.5.0
 torch==2.4.0
 torch_geometric==2.5.3
+torch_scatter==2.1.2
 tqdm==4.66.5
 trimesh==4.4.4
 typing_extensions==4.12.2
