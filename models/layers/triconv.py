@@ -36,14 +36,12 @@ class TriConv(nn.Module):
         t_min, _ = scatter_max(-edge_vec.abs(), col, dim=0, dim_size=pos.size(0))
         t_min = -t_min
 
-        barycenter = pos.mean(dim=1, keepdim=True)
+        barycenter = pos.mean(dim=-1, keepdim=True) if pos.dim() == 3 else pos
         barycenter_diff = barycenter[row] - barycenter[col]
 
         t_max_diff = t_max[row] - t_max[col]
         t_min_diff = t_min[row] - t_min[col]
-        barycenter_diff = (
-            barycenter_diff.squeeze(-1).unsqueeze(-1).expand_as(t_max_diff)
-        )
+        barycenter_diff = barycenter_diff.expand_as(t_max_diff)
 
         rel_pos = torch.cat([t_max_diff, t_min_diff, barycenter_diff], dim=-1)
 
