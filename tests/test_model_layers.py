@@ -72,6 +72,7 @@ def test_triconv_initialization(triconv_layer):
     assert triconv_layer.in_channels == 16
     assert triconv_layer.out_channels == 32
     assert isinstance(triconv_layer.mlp, nn.Sequential)
+    assert triconv_layer.mlp[0].in_features == 25  # 16 + 9
 
 
 def test_triconv_forward(triconv_layer):
@@ -108,3 +109,13 @@ def test_triconv_gradient(triconv_layer):
     assert x.grad is not None
     assert pos.grad is not None
     assert all(p.grad is not None for p in triconv_layer.parameters())
+
+
+def test_last_edge_index(triconv_layer):
+    num_nodes = 10
+    x = torch.randn(num_nodes, 16)
+    pos = torch.randn(num_nodes, 3)
+    edge_index = torch.randint(0, num_nodes, (2, 20))
+
+    triconv_layer(x, pos, edge_index)
+    assert torch.all(triconv_layer.last_edge_index == edge_index)
