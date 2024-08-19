@@ -78,14 +78,6 @@ To evaluate the model on a test set:
 python ./scripts/evaluate.py --model_path /path/to/saved/model --test_data /path/to/test/set
 ```
 
-## Results
-
-Our implementation achieves results comparable to those reported in the original paper:
-
-- Up to 10x faster than traditional methods
-- Competitive performance on appearance error measures
-- Effective preservation of mesh structure and details
-
 ## Citation
 
 If you use this code in your research, please cite the original paper:
