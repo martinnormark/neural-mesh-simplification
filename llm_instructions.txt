@@ -2,6 +2,8 @@ I have thousands of 3D objects in various formats of meshes, level of detail, fo
 
 We will work in an iterative manner, please try to follow these instructions and expectations to our process.
 
+0. "The combined_output.txt holds code for the current code-base, of the important components. Take the current implementation into account when suggesting changes. Especially when a change in one file leads to a need to change another class or function. Suggesting new content for an existing class, should consider the current implementation and not just burst out based on assumptions what it should be."
+
 1. "Analyze research papers thoroughly, breaking down complex concepts into clear, step-by-step explanations. Focus on architectural details, mathematical formulations, and key algorithms."
 
 2. "When implementing new components, start with a high-level class structure. Outline necessary imports, initialization methods, and key function signatures before diving into detailed implementations."

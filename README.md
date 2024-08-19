@@ -6,6 +6,18 @@ Research, methodology introduced in the [Neural Mesh Simplification paper](https
 
 This implementation could not have been done without the use of an LLM, specifically Claude Sonnet 3.5 by Anthropic. It was useful to create a project, upload the PDF of the papers there and use the custom instructions in [llm_instructions.txt](llm_instructions.txt). To steer the model, a copy of the file structure (which it helped create early on) is also useful. This can be created with the command `tree -F -I '*.ply|*.obj|*__pycache__*' > file_structure.txt` in the root directory of the project.
 
+It is also useful to keep an updated copy of the main components of the code-base in the LLM project. This can be done with the following command, and uploading the file to the project in Claude:
+
+```bash
+find losses metrics models tests utils trainer \
+    \( -type d -name "*__pycache__*" -o -name ".DS_Store" \) -prune -o -type f -print \
+    | while IFS= read -r filepath; do
+        echo "====== $filepath start ======" >> combined_output.txt
+        cat "$filepath" >> combined_output.txt
+        echo "====== end of $filepath ======" >> combined_output.txt
+    done
+```
+
 ## Overview
 
 Neural Mesh Simplification is a novel approach to reduce the resolution of 3D meshes while preserving their appearance. Unlike traditional simplification methods that collapse edges in a greedy iterative manner, this method simplifies a given mesh in one pass using deep learning techniques.
