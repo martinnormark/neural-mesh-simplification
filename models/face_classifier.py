@@ -20,6 +20,10 @@ class FaceClassifier(nn.Module):
         self.final_layer = nn.Linear(hidden_dim, 1)
 
     def forward(self, x, pos, batch=None):
+        # Handle empty input
+        if x.size(0) == 0 or pos.size(0) == 0:
+            return torch.tensor([], device=x.device)
+
         # Compute barycenters if pos is 3D
         if pos.dim() == 3:
             pos = pos.mean(dim=1)
@@ -44,7 +48,10 @@ class FaceClassifier(nn.Module):
         return probabilities
 
     def custom_knn_graph(self, x, k, batch=None):
-        batch_size = 1 if batch is None else batch.max().item() + 1
+        if x.size(0) == 0:
+            return torch.empty((2, 0), dtype=torch.long, device=x.device)
+
+        batch_size = 1 if batch is None else int(batch.max().item()) + 1
         edge_index = []
 
         for b in range(batch_size):
@@ -54,19 +61,27 @@ class FaceClassifier(nn.Module):
                 mask = batch == b
                 x_batch = x[mask]
 
-            distances = torch.cdist(x_batch, x_batch)
-            distances.fill_diagonal_(float("inf"))
-            _, indices = distances.topk(k, largest=False)
+            if x_batch.size(0) > 1:
+                distances = torch.cdist(x_batch, x_batch)
+                distances.fill_diagonal_(float("inf"))
+                _, indices = distances.topk(min(k, x_batch.size(0) - 1), largest=False)
 
-            source = (
-                torch.arange(x_batch.size(0), device=x.device).view(-1, 1).expand(-1, k)
-            )
-            edge_index.append(torch.stack([source.reshape(-1), indices.reshape(-1)]))
+                source = (
+                    torch.arange(x_batch.size(0), device=x.device)
+                    .view(-1, 1)
+                    .expand(-1, indices.size(1))
+                )
+                edge_index.append(
+                    torch.stack([source.reshape(-1), indices.reshape(-1)])
+                )
 
-        edge_index = torch.cat(edge_index, dim=1)
+        if edge_index:
+            edge_index = torch.cat(edge_index, dim=1)
 
-        # Make the graph symmetric
-        edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
-        edge_index = torch.unique(edge_index, dim=1)
+            # Make the graph symmetric
+            edge_index = torch.cat([edge_index, edge_index.flip(0)], dim=1)
+            edge_index = torch.unique(edge_index, dim=1)
+        else:
+            edge_index = torch.empty((2, 0), dtype=torch.long, device=x.device)
 
         return edge_index

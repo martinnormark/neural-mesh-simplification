@@ -9,8 +9,11 @@ class TriConv(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
 
+        # Calculate the correct input dimension for the MLP
+        mlp_input_dim = in_channels + 9  # 9 is from the relative position encoding
+
         self.mlp = nn.Sequential(
-            nn.Linear(in_channels + 9, out_channels),
+            nn.Linear(mlp_input_dim, out_channels),
             nn.ReLU(),
             nn.Linear(out_channels, out_channels),
         )
