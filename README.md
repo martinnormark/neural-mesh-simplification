@@ -4,7 +4,7 @@ This repository contains an implementation of the paper "Neural Mesh Simplificat
 
 Research, methodology introduced in the [Neural Mesh Simplification paper](https://openaccess.thecvf.com/content/CVPR2022/papers/Potamias_Neural_Mesh_Simplification_CVPR_2022_paper.pdf), with the updated info shared in [supplementary material](https://openaccess.thecvf.com/content/CVPR2022/supplemental/Potamias_Neural_Mesh_Simplification_CVPR_2022_supplemental.pdf).
 
-This implementation could not have been done without the use of an LLM, specifically Claude Sonnet 3.5 by Anthropic. It was useful to create a project, upload the PDF of the papers there and use the custom instructions in [llm_instructions.txt](llm_instructions.txt). To steer the model, a copy of the file structure (which it helped create early on) is also useful. This can be created with the command `tree -F > file_structure.txt` in the root directory of the project.
+This implementation could not have been done without the use of an LLM, specifically Claude Sonnet 3.5 by Anthropic. It was useful to create a project, upload the PDF of the papers there and use the custom instructions in [llm_instructions.txt](llm_instructions.txt). To steer the model, a copy of the file structure (which it helped create early on) is also useful. This can be created with the command `tree -F -I '*.ply|*.obj|*__pycache__*' > file_structure.txt` in the root directory of the project.
 
 ## Overview
 
