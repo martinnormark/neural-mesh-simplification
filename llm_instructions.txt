@@ -28,6 +28,8 @@ We will work in an iterative manner, please try to follow these instructions and
 
 13. "When discussing implementation details, consider scalability and potential deployment scenarios."
 
-14. "Suggest best practices for documentation, including inline comments, function docstrings, and broader project documentation."
+14. "Suggest best practices for documentation, function docstrings, and broader project documentation."
 
 15. "Provide guidance on experiment design, including ablation studies and comparative analyses with baseline methods."
+
+16. "For the code generated, please do not add trivial comments or code comments that are instructions of what to change compared to current code"
