@@ -8,7 +8,7 @@ global folder_patterns
 folder_patterns = ["abc_extra_noisy/03_meshes/*.ply", "abc_train/03_meshes/*.ply"]
 
 
-def download_meshes(target_folder):
+def download_meshes(target_folder, folder_pattern=folder_patterns[0]):
     wip_folder = os.path.join(target_folder, "wip")
     os.makedirs(wip_folder, exist_ok=True)
 
@@ -16,7 +16,7 @@ def download_meshes(target_folder):
         repo_id="perler/ppsurf",
         repo_type="dataset",
         cache_dir=wip_folder,
-        allow_patterns=folder_patterns[0],
+        allow_patterns=folder_pattern,
     )
 
     # Move files from wip folder to target folder
@@ -42,8 +42,21 @@ def main():
         required=True,
         help="The target folder path where the meshes will be downloaded.",
     )
+    parser.add_argument(
+        "--dataset-size",
+        type=str,
+        required=False,
+        default="small",
+        choices=["small", "large"],
+        help="The size of the dataset to download. Choose 'small' or 'large'.",
+    )
+
     args = parser.parse_args()
-    download_meshes(args.target_folder)
+
+    download_meshes(
+        args.target_folder,
+        folder_patterns[0] if args.dataset_size == "small" else folder_patterns[1],
+    )
 
 
 if __name__ == "__main__":
