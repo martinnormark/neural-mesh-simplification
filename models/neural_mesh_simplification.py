@@ -35,6 +35,12 @@ class NeuralMeshSimplification(nn.Module):
             else sampled_x
         )
 
+        sampled_vertices = (
+            data.pos[sampled_indices]
+            if hasattr(data, "pos") and data.pos is not None
+            else sampled_x
+        )
+
         # Update edge_index to reflect the new indices
         sampled_edge_index, _ = torch_geometric.utils.subgraph(
             sampled_indices, edge_index, relabel_nodes=True, num_nodes=num_nodes
@@ -49,16 +55,30 @@ class NeuralMeshSimplification(nn.Module):
         )
 
         # Classify faces
-        face_probs = self.face_classifier(sampled_x, sampled_pos, batch=None)
+        if candidate_triangles.shape[0] > 0:
+            face_probs = self.face_classifier(sampled_x, sampled_pos, batch=None)
+            # Ensure face_probs matches the number of candidate triangles
+            face_probs = face_probs[: candidate_triangles.shape[0]]
+        else:
+            face_probs = torch.empty(0, device=data.x.device)
+
+        if candidate_triangles.shape[0] == 0:
+            simplified_faces = torch.empty(
+                (0, 3), dtype=torch.long, device=data.x.device
+            )
+        else:
+            simplified_faces = candidate_triangles[face_probs > 0.5]
 
         return {
             "sampled_indices": sampled_indices,
             "sampled_probs": sampled_probs,
+            "sampled_vertices": sampled_vertices,
             "edge_index": edge_index_pred,
             "edge_probs": edge_probs,
             "candidate_triangles": candidate_triangles,
             "triangle_probs": triangle_probs,
             "face_probs": face_probs,
+            "simplified_faces": simplified_faces,
         }
 
     def generate_candidate_triangles(self, edge_index, edge_probs):
