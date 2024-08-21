@@ -31,7 +31,11 @@ class CombinedMeshSimplificationLoss(nn.Module):
             simplified_data["simplified_faces"],
             simplified_data["face_probs"],
         )
-        collision_loss = self.collision_loss(simplified_data)
+        collision_loss = self.collision_loss(
+            simplified_data["sampled_vertices"],
+            simplified_data["simplified_faces"],
+            simplified_data["face_probs"],
+        )
         edge_crossing_loss = self.edge_crossing_loss(simplified_data)
         overlap_loss = self.overlap_loss(simplified_data)
 
