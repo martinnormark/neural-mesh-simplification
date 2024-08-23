@@ -4,7 +4,7 @@ from losses import (
     ProbabilisticSurfaceDistanceLoss,
     TriangleCollisionLoss,
     EdgeCrossingLoss,
-    OverlapLoss,
+    OverlappingTrianglesLoss,
 )
 
 
@@ -17,7 +17,7 @@ class CombinedMeshSimplificationLoss(nn.Module):
         self.prob_surface_loss = ProbabilisticSurfaceDistanceLoss()
         self.collision_loss = TriangleCollisionLoss()
         self.edge_crossing_loss = EdgeCrossingLoss()
-        self.overlap_loss = OverlapLoss()
+        self.overlapping_triangles_loss = OverlappingTrianglesLoss()
         self.lambda_c = lambda_c
         self.lambda_e = lambda_e
         self.lambda_o = lambda_o
@@ -37,14 +37,14 @@ class CombinedMeshSimplificationLoss(nn.Module):
             simplified_data["face_probs"],
         )
         edge_crossing_loss = self.edge_crossing_loss(simplified_data)
-        overlap_loss = self.overlap_loss(simplified_data)
+        overlapping_triangles_loss = self.overlapping_triangles_loss(simplified_data)
 
         total_loss = (
             chamfer_loss
             + surface_loss
             + self.lambda_c * collision_loss
             + self.lambda_e * edge_crossing_loss
-            + self.lambda_o * overlap_loss
+            + self.lambda_o * overlapping_triangles_loss
         )
 
         return total_loss
