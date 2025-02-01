@@ -75,29 +75,24 @@ def augment_mesh(mesh: trimesh.Trimesh) -> Trimesh | None:
 
     return mesh
 
-
 def mesh_to_tensor(mesh: trimesh.Trimesh) -> Data:
-    """Convert a mesh to tensor representation including graph structure."""
-    if mesh is None:
-        return None
+    """
+    Converts a trimesh.Trimesh to a torch_geometric Data object.
+    
+    Vertices are converted to float coordinates. Faces are converted 
+    to long tensors in COO format. A valid edge_index is computed from 
+    the mesh's unique edges.
+    """
 
     # Convert vertices and faces to tensors
-    vertices_tensor = torch.tensor(mesh.vertices, dtype=torch.float32)
-    faces_tensor = torch.tensor(mesh.faces, dtype=torch.long)
+    vertices = torch.tensor(mesh.vertices, dtype=torch.float32)
+    faces = torch.tensor(mesh.faces, dtype=torch.long)
 
-    # Build graph structure
-    G = build_graph_from_mesh(mesh)
+    # Extract unique edges from the mesh and convert to numpy array first
+    edges = np.array(mesh.edges_unique)
+    # Convert to tensor and transpose to shape: [2, num_edges]
+    edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
 
-    # Create edge index tensor
-    edge_index = torch.tensor(list(G.edges), dtype=torch.long).t().contiguous()
-
-    # Create Data object
-    data = Data(
-        x=vertices_tensor,
-        pos=vertices_tensor,
-        edge_index=edge_index,
-        face=faces_tensor.t(),
-        num_nodes=len(mesh.vertices),
-    )
+    data = Data(x=vertices, pos=vertices.clone(), edge_index=edge_index, face=faces.t(), num_nodes=len(mesh.vertices))
 
     return data
