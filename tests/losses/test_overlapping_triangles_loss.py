@@ -1,12 +1,12 @@
 import pytest
 import torch
 
-from neural_mesh_simplification.losses import OverlappingTrianglesLoss
+from neural_mesh_simplification.losses.overlapping_triangles_loss import OverlappingTrianglesLoss
 
 
 @pytest.fixture
 def loss_fn():
-    return OverlappingTrianglesLoss(num_samples=5, k=3)
+    return OverlappingTrianglesLoss(num_samples=5, k=2)
 
 
 @pytest.fixture

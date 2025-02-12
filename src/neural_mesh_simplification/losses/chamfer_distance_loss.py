@@ -1,12 +1,21 @@
+import logging
+
 import torch
 import torch.nn as nn
+
+logger = logging.getLogger(__name__)
 
 
 class ProbabilisticChamferDistanceLoss(nn.Module):
     def __init__(self):
         super(ProbabilisticChamferDistanceLoss, self).__init__()
 
-    def forward(self, P, Ps, probabilities):
+    def forward(
+        self,
+        P: torch.Tensor,
+        Ps: torch.Tensor,
+        probabilities: torch.Tensor
+    ) -> torch.Tensor:
         """
         Compute the Probabilistic Chamfer Distance loss.
 
@@ -18,6 +27,9 @@ class ProbabilisticChamferDistanceLoss(nn.Module):
         Returns:
             torch.Tensor: Scalar loss value
         """
+
+        logger.debug(f"Calculating CHAMFER loss on device {P.device} {Ps.device} {probabilities.device}")
+
         if P.size(0) == 0 or Ps.size(0) == 0:
             return torch.tensor(0.0, device=P.device, requires_grad=True)
 
@@ -42,7 +54,12 @@ class ProbabilisticChamferDistanceLoss(nn.Module):
 
         return loss
 
-    def compute_minimum_distances(self, source, target, return_indices=False):
+    def compute_minimum_distances(
+        self,
+        source: torch.Tensor,
+        target: torch.Tensor,
+        return_indices: bool = False
+    ):
         """
         Compute the minimum distances from each point in source to target.
 

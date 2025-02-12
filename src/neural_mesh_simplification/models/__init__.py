@@ -1,4 +1,4 @@
-from .point_sampler import PointSampler
-from .edge_predictor import EdgePredictor
-from .face_classifier import FaceClassifier
+from .edge_predictor import EdgePredictorDGL
+from .face_classifier import FaceClassifierDGL
 from .neural_mesh_simplification import NeuralMeshSimplification
+from .point_sampler import PointSamplerDGL

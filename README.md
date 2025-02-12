@@ -39,15 +39,18 @@ conda install pip
 ```
 
 Depending on whether you are using PyTorch on a CPU or a GPU,
-you'll have to use the correct binaries for PyTorch and the PyTorch Geometric libraries. You can install them via:
+you'll have to use the correct binaries for PyTorch and DGL. You can install them via:
 
 ```bash
-pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cpu
-pip install torch_cluster==1.6.3 torch_geometric==2.5.3 torch_scatter==2.1.2 torch_sparse==0.6.18 -f https://data.pyg.org/whl/torch-2.4.0+cpu.html
+pip install torch==2.3.0 torchvision==0.18.0 torchaudio==2.3.0 --index-url https://download.pytorch.org/whl/cpu
+pip install dgl==2.2.0 -f https://data.dgl.ai/wheels/torch-2.3/repo.html
 ```
 
 Replace “cpu” with “cu121” or the appropriate CUDA version for your system. If you don't know what is your cuda version,
 run `nvidia-smi`
+
+NOTE: When updating version of PyTorch or DGL, please check https://www.dgl.ai/pages/start.html to determine
+the versions compatible with CUDA.
 
 After that you can install the remaining requirements
 

@@ -26,6 +26,7 @@ pluggy==1.5.0
 psutil==6.0.0
 pyarrow==17.0.0
 pyarrow-hotfix==0.6
+pydantic==2.10.6
 pyparsing==3.1.2
 pytest==8.3.2
 python-dateutil==2.9.0.post0
@@ -39,6 +40,7 @@ setuptools==72.1.0
 six==1.16.0
 sympy==1.13.1
 threadpoolctl==3.5.0
+torchdata==0.9.0
 tqdm==4.66.5
 trimesh==4.4.4
 typing_extensions==4.12.2

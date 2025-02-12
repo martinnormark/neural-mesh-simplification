@@ -1,12 +1,13 @@
 import pytest
 import torch
 
-from neural_mesh_simplification.losses import EdgeCrossingLoss
+from neural_mesh_simplification.losses.edge_crossing_loss import EdgeCrossingLoss
 
+k_val = 2
 
 @pytest.fixture
 def loss_fn():
-    return EdgeCrossingLoss(k=2)
+    return EdgeCrossingLoss(k=k_val)
 
 
 @pytest.fixture
@@ -38,7 +39,7 @@ def test_find_nearest_triangles(loss_fn):
 
     nearest = loss_fn.find_nearest_triangles(vertices, faces)
     assert nearest.shape[0] == faces.shape[0]
-    assert nearest.shape[1] == 1  # k-1 = 1, since k=2
+    assert nearest.shape[1] == k_val
 
 
 def test_detect_edge_crossings(loss_fn, sample_data):

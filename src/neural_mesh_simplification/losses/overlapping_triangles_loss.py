@@ -1,5 +1,9 @@
+import logging
+
 import torch
 import torch.nn as nn
+
+logger = logging.getLogger(__name__)
 
 
 class OverlappingTrianglesLoss(nn.Module):
@@ -16,6 +20,9 @@ class OverlappingTrianglesLoss(nn.Module):
         self.k = k  # Number of nearest triangles to consider
 
     def forward(self, vertices: torch.Tensor, faces: torch.Tensor):
+
+        logger.debug(f"Calculating SURFACE loss")
+        logger.debug(f"devices (vertices, faces) = ({vertices}, {faces})")
 
         # If no faces, return zero loss
         if faces.shape[0] == 0:

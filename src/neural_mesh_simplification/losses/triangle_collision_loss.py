@@ -1,10 +1,15 @@
+import logging
+
+import dgl
 import torch
 import torch.nn as nn
+
+logger = logging.getLogger(__name__)
 
 
 class TriangleCollisionLoss(nn.Module):
     def __init__(
-        self, epsilon=1e-8, k=50, collision_threshold=1e-10, normal_threshold=0.99
+        self, epsilon=1e-8, k=20, collision_threshold=1e-10, normal_threshold=0.99
     ):
         super().__init__()
         self.epsilon = epsilon
@@ -12,7 +17,18 @@ class TriangleCollisionLoss(nn.Module):
         self.collision_threshold = collision_threshold
         self.normal_threshold = normal_threshold
 
-    def forward(self, vertices, faces, face_probabilities):
+    def forward(
+        self,
+        vertices: torch.Tensor,
+        faces: torch.Tensor,
+        face_probabilities: torch.Tensor
+    ) -> torch.Tensor:
+        logger.debug(f"Calculating TRIANGLE COLLISION loss")
+        logger.debug(
+            f"devices (vertices, faces, face_probabilities) = "
+            f"({vertices}, {faces}, {face_probabilities})"
+        )
+
         num_faces = faces.shape[0]
 
         if num_faces == 0:
@@ -25,7 +41,7 @@ class TriangleCollisionLoss(nn.Module):
 
         v0, v1, v2 = vertices[faces].unbind(1)
 
-        # Calculate face normals more efficiently
+        # Calculate face normals
         edges1 = v1 - v0
         edges2 = v2 - v0
         face_normals = torch.linalg.cross(edges1, edges2)
@@ -37,18 +53,11 @@ class TriangleCollisionLoss(nn.Module):
         # Calculate centroids
         centroids = (v0 + v1 + v2) / 3
 
-        # Find k nearest neighbors using squared distances
-        diffs = centroids.unsqueeze(1) - centroids.unsqueeze(0)
-        distances = torch.sum(diffs * diffs, dim=-1)
-        del diffs  # Large tensor no longer needed
-
-        k = min(self.k, num_faces - 1)
-        _, neighbors = torch.topk(distances, k=k + 1, largest=False)
-        del distances  # Large matrix no longer needed
-        neighbors = neighbors[:, 1:]
+        # Find k nearest neighbors using DGL
+        g_knn = dgl.knn_graph(centroids, self.k)
+        neighbors = g_knn.edges()[1].reshape(-1, self.k)
 
         collision_count = torch.zeros(num_faces, device=vertices.device)
-
         for i in range(num_faces):
             nearby_faces = neighbors[i]
             nearby_v0, nearby_v1, nearby_v2 = (
@@ -56,7 +65,6 @@ class TriangleCollisionLoss(nn.Module):
                 v1[nearby_faces],
                 v2[nearby_faces],
             )
-
             collisions = self.check_triangle_intersection(
                 v0[i],
                 v1[i],

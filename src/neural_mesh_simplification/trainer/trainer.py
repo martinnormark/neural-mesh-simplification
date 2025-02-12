@@ -4,13 +4,14 @@ from multiprocessing import Event, Process
 from typing import Dict, Any
 
 import torch
+from dgl.dataloading import GraphDataLoader
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import random_split
-from torch_geometric.loader import DataLoader
 
 from .resource_monitor import monitor_resources
 from ..data import MeshSimplificationDataset
+from ..data.dataset import collate, dgl_to_trimesh
 from ..losses import CombinedMeshSimplificationLoss
 from ..metrics import chamfer_distance, normal_consistency, edge_preservation, hausdorff_distance
 from ..models import NeuralMeshSimplification
@@ -38,8 +39,7 @@ class Trainer:
             k=config["model"]["k"],
             edge_k=config["model"]["edge_k"],
             target_ratio=config["model"]["target_ratio"],
-            device=self.device,
-        )
+        ).to(self.device)
 
         logger.debug("Setting up optimizer and loss...")
         self.optimizer = Adam(
@@ -54,8 +54,8 @@ class Trainer:
             lambda_c=config["loss"]["lambda_c"],
             lambda_e=config["loss"]["lambda_e"],
             lambda_o=config["loss"]["lambda_o"],
-            device=self.device,
-        )
+        ).to(self.device)
+
         self.early_stopping_patience = config["training"]["early_stopping_patience"]
         self.best_val_loss = float("inf")
         self.early_stopping_counter = 0
@@ -93,20 +93,20 @@ class Trainer:
         num_workers = self.config["training"].get("num_workers", os.cpu_count())
         logger.info(f"Using {num_workers} workers for data loading")
 
-        train_loader = DataLoader(
+        train_loader = GraphDataLoader(
             train_dataset,
             batch_size=self.config["training"]["batch_size"],
             shuffle=True,
             num_workers=num_workers,
-            follow_batch=["x", "pos"]
+            collate_fn=collate
         )
 
-        val_loader = DataLoader(
+        val_loader = GraphDataLoader(
             val_dataset,
             batch_size=self.config["training"]["batch_size"],
             shuffle=False,
             num_workers=num_workers,
-            follow_batch=["x", "pos"]
+            collate_fn=collate
         )
         logger.info("Data loaders prepared successfully")
 
@@ -117,6 +117,8 @@ class Trainer:
             main_pid = os.getpid()
             self.monitor_process = Process(target=monitor_resources, args=(self.stop_event, main_pid))
             self.monitor_process.start()
+
+        logging.debug("Training started")
 
         try:
             for epoch in range(self.config["training"]["num_epochs"]):
@@ -141,6 +143,7 @@ class Trainer:
                 if self._early_stopping(val_loss):
                     logging.info("Early stopping triggered.")
                     break
+
         except Exception as e:
             logger.error(f"{str(e)}")
         finally:
@@ -156,16 +159,23 @@ class Trainer:
 
         for batch_idx, batch in enumerate(self.train_loader):
             logger.debug(f"Processing batch {batch_idx + 1}")
-            self.optimizer.zero_grad()
-            output = self.model(batch)
-            loss = self.criterion(batch, output)
+            for orig_graph, orig_faces in zip(*batch):
+                self.optimizer.zero_grad()
 
-            del batch
-            del output
+                orig_graph = orig_graph.to(self.device)
+                s_graph, s_faces, face_probs = self.model(orig_graph)
 
-            loss.backward()
-            self.optimizer.step()
-            running_loss += loss.item()
+                loss = self.criterion(orig_graph, orig_faces, s_graph, s_faces, face_probs)
+
+                del orig_graph
+                del orig_faces
+                del s_graph
+                del s_faces
+                del face_probs
+
+                loss.backward()
+                self.optimizer.step()
+                running_loss += loss.item()
 
         return running_loss / len(self.train_loader)
 
@@ -173,10 +183,18 @@ class Trainer:
         self.model.eval()
         val_loss = 0.0
         with torch.no_grad():
-            for batch in self.val_loader:
-                output = self.model(batch)
-                loss = self.criterion(batch, output)
-                val_loss += loss.item()
+            for batch_idx, batch in enumerate(self.val_loader):
+                for orig_graph, orig_faces in zip(*batch):
+                    s_graph, s_faces, face_probs = self.model(orig_graph)
+                    loss = self.criterion(orig_graph, orig_faces, s_graph, s_faces, face_probs)
+
+                    del orig_graph
+                    del orig_faces
+                    del s_graph
+                    del s_faces
+                    del face_probs
+
+                    val_loss += loss.item()
 
         return val_loss / len(self.val_loader)
 
@@ -223,7 +241,7 @@ class Trainer:
         log_message += ", ".join([f"{key}: {value:.4f}" for key, value in metrics.items()])
         logging.info(log_message)
 
-    def evaluate(self, data_loader: DataLoader) -> Dict[str, float]:
+    def evaluate(self, data_loader: GraphDataLoader) -> Dict[str, float]:
         self.model.eval()
         metrics = {
             "chamfer_distance": 0.0,
@@ -232,17 +250,21 @@ class Trainer:
             "hausdorff_distance": 0.0
         }
         with torch.no_grad():
-            for batch in data_loader:
-                output = self.model(batch)
+            for batch_idx, batch in enumerate(data_loader):
+                for orig_graph, orig_faces in zip(*batch):
+                    s_graph, s_faces, face_probs = self.model(orig_graph)
 
-                # TODO: Define methods that can operate on a batch instead of a trimesh object
+                    orig_mesh = dgl_to_trimesh(orig_graph, orig_faces)
+                    s_mesh = dgl_to_trimesh(s_graph, s_faces)
 
-                metrics["chamfer_distance"] += chamfer_distance(batch, output)
-                metrics["normal_consistency"] += normal_consistency(batch, output)
-                metrics["edge_preservation"] += edge_preservation(batch, output)
-                metrics["hausdorff_distance"] += hausdorff_distance(batch, output)
+                    metrics["chamfer_distance"] += chamfer_distance(orig_mesh, s_mesh)
+                    metrics["normal_consistency"] += normal_consistency(orig_mesh)
+                    metrics["edge_preservation"] += edge_preservation(orig_mesh, s_mesh)
+                    metrics["hausdorff_distance"] += hausdorff_distance(orig_mesh, s_mesh)
+
         for key in metrics:
             metrics[key] /= len(data_loader)
+
         return metrics
 
     def handle_error(self, error: Exception):

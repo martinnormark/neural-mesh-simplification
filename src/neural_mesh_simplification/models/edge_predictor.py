@@ -1,115 +1,53 @@
 import warnings
 
+import dgl
+import dgl.nn as dglnn
 import torch
 import torch.nn as nn
-from torch_geometric.nn import knn_graph
-from torch_scatter import scatter_softmax
-from torch_sparse import SparseTensor
-
-from .layers.devconv import DevConv
+from dgl import DGLGraph
+from dgl.nn.pytorch import GraphConv
 
 warnings.filterwarnings("ignore", message="Sparse CSR tensor support is in beta state")
 
 
-class EdgePredictor(nn.Module):
-    def __init__(self, in_channels, hidden_channels, k):
-        super(EdgePredictor, self).__init__()
+class EdgePredictorDGL(nn.Module):
+    def __init__(self, in_channels: int, hidden_channels: int, k: int):
+        super(EdgePredictorDGL, self).__init__()
         self.k = k
-        self.devconv = DevConv(in_channels, hidden_channels)
-
-        # Self-attention components
+        self.conv = GraphConv(in_channels, hidden_channels)
         self.W_q = nn.Linear(hidden_channels, hidden_channels, bias=False)
         self.W_k = nn.Linear(hidden_channels, hidden_channels, bias=False)
 
-    def forward(self, x, edge_index):
-        if edge_index.numel() == 0:
-            raise ValueError("Edge index is empty")
+    def forward(self, g: DGLGraph) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        Predict edges and their probabilities.
 
-        # Step 1: Extend original mesh connectivity with k-nearest neighbors
-        knn_edges = knn_graph(x, k=self.k, flow="target_to_source")
+        Args:
+            g (dgl.DGLGraph): Input graph with node features 'x'.
 
-        # Ensure knn_edges indices are within bounds
-        max_idx = x.size(0) - 1
-        valid_edges = (knn_edges[0] <= max_idx) & (knn_edges[1] <= max_idx)
-        knn_edges = knn_edges[:, valid_edges]
+        Returns:
+            tuple: (edge_index_pred, edge_probs)
+                - edge_index_pred (torch.Tensor): Predicted edges [2, num_edges].
+                - edge_probs (torch.Tensor): Probabilities for each predicted edge [num_edges].
+        """
+        # Step 1: Apply graph convolution to compute node embeddings
+        h = g.ndata['x']
+        h = self.conv(g, h)
 
-        # Combine original edges with knn edges
-        if edge_index.numel() > 0:
-            extended_edges = torch.cat([edge_index, knn_edges], dim=1)
-            # Remove duplicate edges
-            extended_edges = torch.unique(extended_edges, dim=1)
-        else:
-            extended_edges = knn_edges
+        # Step 2: Compute query (q) and key (k) vectors for attention
+        q = self.W_q(h)
+        k = self.W_k(h)
 
-        # Step 2: Apply DevConv
-        features = self.devconv(x, extended_edges)
+        # Step 3: Compute attention scores for all edges in the graph
+        g.ndata['q'] = q
+        g.ndata['k'] = k
+        g.apply_edges(lambda edges: {'score': (edges.src['q'] * edges.dst['k']).sum(dim=-1)})
 
-        # Step 3: Apply sparse self-attention
-        attention_scores = self.compute_attention_scores(features, edge_index)
+        # Step 4: Normalize scores using softmax to get edge probabilities
+        g.edata['prob'] = dgl.nn.functional.edge_softmax(g, g.edata['score'])
 
-        # Step 4: Compute simplified adjacency matrix
-        simplified_adj_indices, simplified_adj_values = (
-            self.compute_simplified_adjacency(attention_scores, edge_index)
-        )
+        # Step 5: Extract predicted edges and their probabilities
+        edge_index_pred = torch.stack(g.edges(), dim=0)  # Shape: [2, num_edges]
+        edge_probs = g.edata['prob']  # Shape: [num_edges]
 
-        return simplified_adj_indices, simplified_adj_values
-
-    def compute_attention_scores(self, features, edges):
-        if edges.numel() == 0:
-            raise ValueError("Edge index is empty")
-
-        row, col = edges
-        q = self.W_q(features)
-        k = self.W_k(features)
-
-        # Compute (W_q f_j)^T (W_k f_i)
-        attention = (q[row] * k[col]).sum(dim=-1)
-
-        # Apply softmax for each source node
-        attention_scores = scatter_softmax(attention, row, dim=0)
-
-        return attention_scores
-
-    def compute_simplified_adjacency(self, attention_scores, edge_index):
-        if edge_index.numel() == 0:
-            raise ValueError("Edge index is empty")
-
-        num_nodes = edge_index.max().item() + 1
-        row, col = edge_index
-
-        # Ensure indices are within bounds
-        if row.numel() > 0:
-            assert torch.all(row < num_nodes) and torch.all(row >= 0), (
-                f"Row indices out of bounds: min={row.min()}, max={row.max()}, num_nodes={num_nodes}"
-            )
-        if col.numel() > 0:
-            assert torch.all(col < num_nodes) and torch.all(col >= 0), (
-                f"Column indices out of bounds: min={col.min()}, max={col.max()}, num_nodes={num_nodes}"
-            )
-
-        # Create sparse attention matrix
-        S = SparseTensor(
-            row=row,
-            col=col,
-            value=attention_scores,
-            sparse_sizes=(num_nodes, num_nodes),
-            trust_data=True,  # Since we verified the indices above
-        )
-
-        # Create original adjacency matrix
-        A = SparseTensor(
-            row=row,
-            col=col,
-            value=torch.ones(edge_index.size(1), device=edge_index.device),
-            sparse_sizes=(num_nodes, num_nodes),
-            trust_data=True,  # Since we verified the indices above
-        )
-
-        # Compute A_s = S * A * S^T using coalesced sparse tensors
-        A_s = S.matmul(A).matmul(S.t())
-
-        # Convert to COO format
-        row, col, value = A_s.coo()
-        indices = torch.stack([row, col], dim=0)
-
-        return indices, value
+        return edge_index_pred, edge_probs

@@ -1,82 +1,90 @@
-import torch.nn as nn
-from torch import device
+import logging
 
-from . import (
-    ProbabilisticChamferDistanceLoss,
-    ProbabilisticSurfaceDistanceLoss,
-    TriangleCollisionLoss,
-    EdgeCrossingLoss,
-    OverlappingTrianglesLoss,
-)
+import dgl
+import torch
+import torch.nn as nn
+
+from .chamfer_distance_loss import ProbabilisticChamferDistanceLoss
+from .edge_crossing_loss import EdgeCrossingLoss
+from .overlapping_triangles_loss import OverlappingTrianglesLoss
+from .surface_distance_loss import ProbabilisticSurfaceDistanceLoss
+from .triangle_collision_loss import TriangleCollisionLoss
+
+logger = logging.getLogger(__name__)
 
 
 class CombinedMeshSimplificationLoss(nn.Module):
     def __init__(
-        self,
-        lambda_c: float = 1.0,
-        lambda_e: float = 1.0,
-        lambda_o: float = 1.0,
-        device=device("cpu")
+            self,
+            lambda_c: float = 1.0,
+            lambda_e: float = 1.0,
+            lambda_o: float = 1.0
     ):
         super().__init__()
-        self.device = device
-        self.prob_chamfer_loss = ProbabilisticChamferDistanceLoss().to(self.device)
-        self.prob_surface_loss = ProbabilisticSurfaceDistanceLoss().to(self.device)
-        self.collision_loss = TriangleCollisionLoss().to(self.device)
-        self.edge_crossing_loss = EdgeCrossingLoss().to(self.device)
-        self.overlapping_triangles_loss = OverlappingTrianglesLoss().to(self.device)
+        self.prob_chamfer_loss = ProbabilisticChamferDistanceLoss()
+        self.prob_surface_loss = ProbabilisticSurfaceDistanceLoss()
+        self.collision_loss = TriangleCollisionLoss()
+        self.edge_crossing_loss = EdgeCrossingLoss()
+        self.overlapping_triangles_loss = OverlappingTrianglesLoss()
         self.lambda_c = lambda_c
         self.lambda_e = lambda_e
         self.lambda_o = lambda_o
 
-    def forward(self, original_data, simplified_data):
-        original_x = (
-            original_data["pos"] if "pos" in original_data else original_data["x"]
-        ).to(self.device)
-        original_face = original_data["face"].to(self.device)
+    def forward(
+            self,
+            original_graph: dgl.DGLGraph,
+            original_faces: torch.Tensor,
+            sampled_graph: dgl.DGLGraph,
+            sampled_faces: torch.Tensor,
+            face_probs: torch.Tensor
+    ):
+        logger.debug(f"Calculating combined loss on device {original_graph.device}")
 
-        sampled_vertices = simplified_data["sampled_vertices"].to(self.device)
-        sampled_probs = simplified_data["sampled_probs"].to(self.device)
-        sampled_faces = simplified_data["simplified_faces"].to(self.device)
-        face_probs = simplified_data["face_probs"].to(self.device)
+        orig_vertices = original_graph.ndata['x']
+        sampled_vertices = sampled_graph.ndata['x']
+        sampled_probs = sampled_graph.ndata['sampled_prob']
+
+        del original_graph
 
         chamfer_loss = self.prob_chamfer_loss(
-            original_x, sampled_vertices, sampled_probs
+            orig_vertices,
+            sampled_vertices,
+            sampled_probs
         )
 
         del sampled_probs
 
         surface_loss = self.prob_surface_loss(
-            original_x,
-            original_face,
+            orig_vertices,
+            original_faces,
             sampled_vertices,
             sampled_faces,
-            face_probs,
+            face_probs
         )
 
-        del original_x
-        del original_face
+        del original_faces
 
         collision_loss = self.collision_loss(
             sampled_vertices,
             sampled_faces,
-            face_probs,
+            face_probs
         )
-        edge_crossing_loss = self.edge_crossing_loss(sampled_vertices, sampled_faces, face_probs)
+        edge_crossing_loss = self.edge_crossing_loss(
+            sampled_vertices,
+            sampled_faces,
+            face_probs
+        )
 
         del face_probs
 
         overlapping_triangles_loss = self.overlapping_triangles_loss(sampled_vertices, sampled_faces)
 
-        del sampled_vertices
-        del sampled_faces
-
         total_loss = (
-            chamfer_loss
-            + surface_loss
-            + self.lambda_c * collision_loss
-            + self.lambda_e * edge_crossing_loss
-            + self.lambda_o * overlapping_triangles_loss
+                chamfer_loss
+                + surface_loss
+                + self.lambda_c * collision_loss
+                + self.lambda_e * edge_crossing_loss
+                + self.lambda_o * overlapping_triangles_loss
         )
 
         return total_loss

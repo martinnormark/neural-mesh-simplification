@@ -1,19 +1,20 @@
-import gc
+import logging
 import os
 from typing import Optional
 
+import dgl
 import numpy as np
 import torch
 import trimesh
-from torch.utils.data import Dataset
-from torch_geometric.data import Data
+from dgl.data import DGLDataset
 from trimesh import Geometry, Trimesh
 
-from ..utils import build_graph_from_mesh
+logger = logging.getLogger(__name__)
 
 
-class MeshSimplificationDataset(Dataset):
-    def __init__(self, data_dir: str, preprocess: bool = False, transform: Optional[callable] = None):
+class MeshSimplificationDataset(DGLDataset):
+    def __init__(self, data_dir, preprocess: bool = False, transform: Optional[callable] = None):
+        super().__init__(name='mesh_simplification')
         self.data_dir = data_dir
         self.preprocess = preprocess
         self.transform = transform
@@ -29,7 +30,7 @@ class MeshSimplificationDataset(Dataset):
     def __len__(self):
         return len(self.file_list)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx) -> tuple[dgl.DGLGraph, torch.Tensor]:
         file_path = os.path.join(self.data_dir, self.file_list[idx])
         mesh = load_mesh(file_path)
 
@@ -39,9 +40,7 @@ class MeshSimplificationDataset(Dataset):
         if self.transform:
             mesh = self.transform(mesh)
 
-        data = mesh_to_tensor(mesh)
-        gc.collect()
-        return data
+        return mesh_to_dgl(mesh)
 
 
 def load_mesh(file_path: str) -> Geometry | list[Geometry] | None:
@@ -81,28 +80,59 @@ def augment_mesh(mesh: trimesh.Trimesh) -> Trimesh | None:
     return mesh
 
 
-def mesh_to_tensor(mesh: trimesh.Trimesh) -> Data:
-    """Convert a mesh to tensor representation including graph structure."""
+def mesh_to_dgl(mesh) -> tuple[dgl.DGLGraph, torch.Tensor]:
     if mesh is None:
-        return None
+        raise ValueError("Mesh is undefined")
 
-    # Convert vertices and faces to tensors
-    vertices_tensor = torch.tensor(mesh.vertices, dtype=torch.float32)
-    faces_tensor = torch.tensor(mesh.faces, dtype=torch.long).t()
+    # Convert vertices to tensor
+    vertices = torch.tensor(mesh.vertices, dtype=torch.float32)
+    num_nodes = vertices.shape[0]
 
-    # Build graph structure
-    G = build_graph_from_mesh(mesh)
+    # Convert unique edges
+    edges_np = np.array(list(mesh.edges_unique))
+    edges = torch.tensor(edges_np, dtype=torch.long).t()
 
-    # Create edge index tensor
-    edge_index = torch.tensor(list(G.edges), dtype=torch.long).t().contiguous()
+    # Create DGL graph
+    g = dgl.graph((edges[0], edges[1]), num_nodes=num_nodes)
+    g = dgl.add_self_loop(g)
 
-    # Create Data object
-    data = Data(
-        x=vertices_tensor,
-        pos=vertices_tensor,
-        edge_index=edge_index,
-        face=faces_tensor,
-        num_nodes=len(mesh.vertices),
+    # Verify node count matches
+    assert g.number_of_nodes() == vertices.shape[0], "Mismatch between nodes and features"
+
+    # Add node features
+    g.ndata['x'] = vertices
+    g.ndata['pos'] = vertices
+
+    # Store face information as node data
+    if hasattr(mesh, 'faces'):
+        faces_tensor = torch.tensor(mesh.faces, dtype=torch.long)
+    else:
+        faces_tensor = torch.empty((0, 3), dtype=torch.long)
+
+    return g, faces_tensor
+
+
+def dgl_to_trimesh(g: dgl.DGLGraph, faces: torch.Tensor | None) -> Trimesh:
+    # Convert to a tensor
+    vertices = g.ndata['pos'].numpy()
+    vertex_normals = g.ndata.get('normal', None)
+    if vertex_normals is not None:
+        vertex_normals = vertex_normals.numpy()
+
+    return trimesh.Trimesh(
+        vertices=vertices,
+        faces=faces,
+        vertex_normals=vertex_normals,
+        process=True,
+        validate=True
     )
 
-    return data
+
+def collate(batch: list[tuple]) -> tuple[dgl.DGLGraph, torch.Tensor]:
+    graphs, faces = zip(*batch)
+    max_faces = max(f.shape[0] for f in faces)
+    padded_faces = torch.stack([
+        torch.nn.functional.pad(f, (0, 0, 0, max_faces - f.shape[0]), value=-1)
+        for f in faces
+    ])
+    return graphs, padded_faces

@@ -21,7 +21,7 @@ def load_config(config_path):
 def main():
     args = parse_args()
     config = load_config(args.config)
-    config["data"]["eval_data_path"] = args.eval_data_path
+    config["data"]["data_dir"] = args.eval_data_path
 
     trainer = Trainer(config)
     trainer.load_checkpoint(args.checkpoint)

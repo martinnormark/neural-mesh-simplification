@@ -27,9 +27,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cpu
-          pip install torch_cluster==1.6.3 torch_geometric==2.5.3 torch_scatter==2.1.2 torch_sparse==0.6.18 -f https://data.pyg.org/whl/torch-2.4.0+cpu.html
+          pip install torch==2.3.0 torchvision==0.18.0 torchaudio==2.3.0 --index-url https://download.pytorch.org/whl/cpu
+          pip install dgl==2.2.0 -f https://data.dgl.ai/wheels/torch-2.3/repo.html
+          pip install torchdata==0.9.0
           pip install -r requirements.txt
+          pip freeze
+          ls -la /opt/hostedtoolcache/Python/3.12.8/x64/lib/python3.12/site-packages/dgl/graphbolt/
       - name: Install this package
         run: |
           pip install -e .

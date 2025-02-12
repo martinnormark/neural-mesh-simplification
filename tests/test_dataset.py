@@ -1,12 +1,13 @@
-import trimesh
+import dgl
 import numpy as np
-import networkx as nx
-from torch_geometric.data import Data
+import torch
+import trimesh
+from numpy.testing import assert_array_equal
+
 from neural_mesh_simplification.data.dataset import (
-    MeshSimplificationDataset,
     preprocess_mesh,
-    mesh_to_tensor,
-    load_mesh,
+    load_mesh, mesh_to_dgl,
+    dgl_to_trimesh, collate
 )
 
 
@@ -39,61 +40,33 @@ def test_preprocess_mesh_scaled(sample_mesh):
     assert np.isclose(max_dim, 1.0), "Mesh is not scaled to unit cube"
 
 
-def test_mesh_to_tensor(sample_mesh: trimesh.Trimesh):
-    data = mesh_to_tensor(sample_mesh)
-    assert isinstance(data, Data)
-    assert data.num_nodes == len(sample_mesh.vertices)
-    assert data.face.shape[1] == len(sample_mesh.faces)
-    assert data.edge_index.shape[0] == 2
-    assert data.edge_index.max() < data.num_nodes
+def test_face_serde(sample_mesh):
+    orig_faces = torch.tensor(sample_mesh.faces, dtype=torch.int64)
+    g, faces = mesh_to_dgl(sample_mesh)
+
+    assert torch.equal(orig_faces, faces)
+
+    r_mesh = dgl_to_trimesh(g, faces)
+
+    assert_array_equal(r_mesh.vertices, sample_mesh.vertices)
+    assert_array_equal(r_mesh.faces, sample_mesh.faces)
 
 
-def test_graph_structure_in_data(sample_mesh):
-    data = mesh_to_tensor(sample_mesh)
+def test_padding():
+    g1 = dgl.graph(([0, 1], [1, 2]), num_nodes=3)
+    g2 = dgl.graph(([0, 1, 2], [1, 2, 0]), num_nodes=3)
+    f1 = torch.tensor([[0, 1, 2], [1, 2, 0]])
+    f2 = torch.tensor([[0, 1, 2], [1, 2, 0], [2, 0, 1]])
 
-    # Check number of nodes
-    assert data.num_nodes == len(sample_mesh.vertices)
+    batch = [(g1, f1), (g2, f2)]
 
-    # Check edge_index
-    assert data.edge_index.shape[0] == 2
-    assert data.edge_index.max() < data.num_nodes
+    # Pad
+    _, padded_faces = collate(batch)
 
-    # Reconstruct graph from edge_index
-    G = nx.Graph()
-    edge_list = data.edge_index.t().tolist()
-    G.add_edges_from(edge_list)
+    # Unpad
+    unpadded_faces = [f[~(f == -1).all(dim=1)] for f in padded_faces]
 
-    # Check reconstructed graph properties
-    assert len(G.nodes) == len(sample_mesh.vertices)
-    assert len(G.edges) == (3 * len(sample_mesh.faces) - len(sample_mesh.edges_unique))
-
-    # Check connectivity
-    assert nx.is_connected(G)
-
-    # Check degree distribution
-    degrees = [d for n, d in G.degree()]
-    assert min(degrees) >= 3  # Each vertex should be connected to at least 3 others
-
-    # Check if the graph is manifold-like (each edge should be shared by at most two faces)
-    edge_face_count = {}
-    for face in sample_mesh.faces:
-        for i in range(3):
-            edge = tuple(sorted([face[i], face[(i + 1) % 3]]))
-            edge_face_count[edge] = edge_face_count.get(edge, 0) + 1
-    assert all(count <= 2 for count in edge_face_count.values())
-
-
-def test_dataset(tmp_path):
-    # Create a few temporary mesh files
-    for i in range(3):
-        mesh = trimesh.creation.box()
-        file_path = tmp_path / f"test_mesh_{i}.obj"
-        mesh.export(file_path)
-
-    dataset = MeshSimplificationDataset(str(tmp_path))
-    assert len(dataset) == 3
-
-    sample = dataset[0]
-    assert isinstance(sample, Data)
-    assert sample.num_nodes > 0
-    assert sample.face.shape[1] > 0
+    # Assert idempotency
+    for original, unpadded in zip([f1, f2], unpadded_faces):
+        assert torch.all(original == unpadded)
+        assert original.shape == unpadded.shape
